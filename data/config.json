@@ -1,0 +1,11 @@
+{
+  "max_threads": 99999,
+  "request_timeout": 5,
+  "proxy_timeout": 10,
+  "user_agent_rotation": true,
+  "auto_update_proxies": true,
+  "attack_duration": 60,
+  "instant_mode_multiplier": 3,
+  "proxy_count": 50,
+  "enable_logging": true
+}
