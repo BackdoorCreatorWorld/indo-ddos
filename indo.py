@@ -8,25 +8,65 @@ import os
 import sys
 import time
 import threading
-from getpass import getpass
 
-# Add core directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'core'))
+# Clear screen first
+os.system('clear' if os.name == 'posix' else 'cls')
 
-# Try to import colorama, install if not available
-try:
-    from colorama import Fore, Style, init
-    init(autoreset=True)
-except ImportError:
-    print("[*] Installing colorama...")
-    os.system(f"{sys.executable} -m pip install colorama --quiet")
-    from colorama import Fore, Style, init
-    init(autoreset=True)
+# Simple ANSI color codes (No Colorama dependency)
+class Colors:
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    MAGENTA = '\033[95m'
+    CYAN = '\033[96m'
+    WHITE = '\033[97m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
 
-# Import core modules
-from attack import DDoSAttacker
-from proxy import ProxyManager
-from utils import validate_url, print_banner, get_hidden_input
+# Simple getpass replacement
+def get_hidden_input(prompt):
+    """Get hidden input for passwords"""
+    import termios
+    import tty
+    
+    print(prompt, end='', flush=True)
+    
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    
+    try:
+        tty.setraw(fd)
+        password = []
+        while True:
+            ch = sys.stdin.read(1)
+            if ch == '\n' or ch == '\r':
+                print()
+                break
+            elif ch == '\x7f' or ch == '\b':  # Backspace
+                if password:
+                    password.pop()
+                    print('\b \b', end='', flush=True)
+            elif ch == '\x03':  # Ctrl+C
+                raise KeyboardInterrupt
+            else:
+                password.append(ch)
+                print('*', end='', flush=True)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    
+    return ''.join(password)
+
+# Validate URL
+def validate_url(url):
+    """Validate URL format"""
+    try:
+        from urllib.parse import urlparse
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except:
+        return False
 
 class INDOSystem:
     def __init__(self):
@@ -35,7 +75,7 @@ class INDOSystem:
         self.authenticated = False
         self.passcodes = ["NanoHas", "DdosFal", "kingmercy", "CutonBarL", "CuteDF"]
         self.attacker = None
-        self.proxy_manager = ProxyManager()
+        self.attack_active = False
         
     def clear_screen(self):
         """Clear terminal screen"""
@@ -43,7 +83,7 @@ class INDOSystem:
     
     def show_banner(self):
         """Display INDO banner tanpa frame"""
-        print(f"""{Fore.RED}
+        print(f"""{Colors.RED}
 
     ██╗███╗░░██╗██████╗░░█████╗░
     ██║████╗░██║██╔══██╗██╔══██╗
@@ -53,42 +93,36 @@ class INDOSystem:
     ╚═╝╚═╝░░╚══╝╚═════╝░░╚════╝░
 
     ═════════ SERVER DISABLER v2.0 ═════════
-{Style.RESET_ALL}""")
+{Colors.END}""")
     
     def authenticate(self):
         """Password authentication"""
-        print(f"\n{Fore.CYAN}{'═'*55}")
-        print(f"{Fore.YELLOW}         🔐 ACCESS AUTHENTICATION")
-        print(f"{Fore.CYAN}{'═'*55}{Style.RESET_ALL}")
+        print(f"\n{Colors.CYAN}{'═'*55}")
+        print(f"{Colors.YELLOW}         🔐 ACCESS AUTHENTICATION")
+        print(f"{Colors.CYAN}{'═'*55}{Colors.END}")
         
         attempts = 3
         while attempts > 0:
             try:
-                password = get_hidden_input(f"{Fore.WHITE}[?] Enter passcode: ")
+                password = get_hidden_input(f"{Colors.WHITE}[?] Enter passcode: ")
                 
                 if password in self.passcodes:
-                    print(f"\n{Fore.GREEN}[✓] ACCESS GRANTED")
-                    print(f"{Fore.CYAN}[*] Initializing attack protocols...")
+                    print(f"\n{Colors.GREEN}[✓] ACCESS GRANTED")
+                    print(f"{Colors.CYAN}[*] Initializing attack protocols...")
                     time.sleep(2)
                     self.authenticated = True
-                    
-                    # Load resources
-                    print(f"{Fore.CYAN}[*] Loading attack resources...")
-                    self.proxy_manager.load_proxies()
-                    print(f"{Fore.GREEN}[✓] System ready")
-                    time.sleep(1)
                     return True
                 else:
                     attempts -= 1
-                    print(f"\n{Fore.RED}[✗] INVALID PASSCODE")
-                    print(f"{Fore.YELLOW}[*] Attempts remaining: {attempts}")
+                    print(f"\n{Colors.RED}[✗] INVALID PASSCODE")
+                    print(f"{Colors.YELLOW}[*] Attempts remaining: {attempts}")
                     
                     if attempts == 0:
-                        print(f"\n{Fore.RED}[!] SYSTEM LOCKED - Maximum attempts reached")
+                        print(f"\n{Colors.RED}[!] SYSTEM LOCKED - Maximum attempts reached")
                         sys.exit(1)
                         
             except KeyboardInterrupt:
-                print(f"\n{Fore.YELLOW}[!] Authentication cancelled")
+                print(f"\n{Colors.YELLOW}[!] Authentication cancelled")
                 sys.exit(0)
         
         return False
@@ -98,29 +132,29 @@ class INDOSystem:
         self.clear_screen()
         self.show_banner()
         
-        print(f"\n{Fore.CYAN}{'═'*55}")
-        print(f"{Fore.YELLOW}          ⚡ SELECT ATTACK METHOD")
-        print(f"{Fore.CYAN}{'═'*55}{Style.RESET_ALL}\n")
+        print(f"\n{Colors.CYAN}{'═'*55}")
+        print(f"{Colors.YELLOW}          ⚡ SELECT ATTACK METHOD")
+        print(f"{Colors.CYAN}{'═'*55}{Colors.END}\n")
         
-        print(f"{Fore.RED}[1]{Fore.WHITE} REQUEST SPAMMER")
-        print(f"    {Fore.CYAN}→{Fore.WHITE} Continuous request bombardment")
-        print(f"    {Fore.CYAN}→{Fore.WHITE} Server resource exhaustion")
-        print(f"    {Fore.CYAN}→{Fore.WHITE} Basic but effective overload\n")
+        print(f"{Colors.RED}[1]{Colors.WHITE} REQUEST SPAMMER")
+        print(f"    {Colors.CYAN}→{Colors.WHITE} Continuous request bombardment")
+        print(f"    {Colors.CYAN}→{Colors.WHITE} Server resource exhaustion")
+        print(f"    {Colors.CYAN}→{Colors.WHITE} Basic but effective overload\n")
         
-        print(f"{Fore.RED}[2]{Fore.WHITE} HTTP/HTTPS FLOOD")
-        print(f"    {Fore.CYAN}→{Fore.WHITE} Advanced Cloudflare bypass 2.5")
-        print(f"    {Fore.CYAN}→{Fore.WHITE} Bot swarm with 50+ proxy rotation")
-        print(f"    {Fore.CYAN}→{Fore.WHITE} Target: Server & Anti-DDoS systems\n")
+        print(f"{Colors.RED}[2]{Colors.WHITE} HTTP/HTTPS FLOOD")
+        print(f"    {Colors.CYAN}→{Colors.WHITE} Advanced Cloudflare bypass 2.5")
+        print(f"    {Colors.CYAN}→{Colors.WHITE} Bot swarm with 50+ proxy rotation")
+        print(f"    {Colors.CYAN}→{Colors.WHITE} Target: Server & Anti-DDoS systems\n")
         
-        print(f"{Fore.RED}[3]{Fore.WHITE} MULTIFACTOR PROXY ATTACK")
-        print(f"    {Fore.CYAN}→{Fore.WHITE} Brutal multi-vector assault")
-        print(f"    {Fore.CYAN}→{Fore.WHITE} Sequential attack patterns")
-        print(f"    {Fore.CYAN}→{Fore.WHITE} Silent fallback penetration")
-        print(f"    {Fore.CYAN}→{Fore.WHITE} Ultimate server disabler\n")
+        print(f"{Colors.RED}[3]{Colors.WHITE} MULTIFACTOR PROXY ATTACK")
+        print(f"    {Colors.CYAN}→{Colors.WHITE} Brutal multi-vector assault")
+        print(f"    {Colors.CYAN}→{Colors.WHITE} Sequential attack patterns")
+        print(f"    {Colors.CYAN}→{Colors.WHITE} Silent fallback penetration")
+        print(f"    {Colors.CYAN}→{Colors.WHITE} Ultimate server disabler\n")
         
-        print(f"{Fore.RED}[0]{Fore.WHITE} EXIT SYSTEM\n")
+        print(f"{Colors.RED}[0]{Colors.WHITE} EXIT SYSTEM\n")
         
-        print(f"{Fore.CYAN}{'═'*55}{Style.RESET_ALL}")
+        print(f"{Colors.CYAN}{'═'*55}{Colors.END}")
     
     def get_attack_config(self):
         """Get attack configuration from user"""
@@ -129,10 +163,10 @@ class INDOSystem:
         try:
             # Select attack method
             while True:
-                choice = input(f"\n{Fore.YELLOW}[?] Select method (1-3): {Fore.WHITE}").strip()
+                choice = input(f"\n{Colors.YELLOW}[?] Select method (1-3): {Colors.WHITE}").strip()
                 
                 if choice == '0':
-                    print(f"\n{Fore.CYAN}[*] Exiting system...")
+                    print(f"\n{Colors.CYAN}[*] Exiting system...")
                     sys.exit(0)
                 
                 if choice in ['1', '2', '3']:
@@ -144,15 +178,15 @@ class INDOSystem:
                     config['method'] = methods[choice]
                     break
                 else:
-                    print(f"{Fore.RED}[!] Invalid selection")
+                    print(f"{Colors.RED}[!] Invalid selection")
             
             # Get target URL
-            print(f"\n{Fore.CYAN}{'═'*55}")
+            print(f"\n{Colors.CYAN}{'═'*55}")
             while True:
-                url = input(f"{Fore.YELLOW}[?] Target URL (http/https): {Fore.WHITE}").strip()
+                url = input(f"{Colors.YELLOW}[?] Target URL (http/https): {Colors.WHITE}").strip()
                 if url:
                     if not validate_url(url):
-                        print(f"{Fore.RED}[!] Invalid URL format")
+                        print(f"{Colors.RED}[!] Invalid URL format")
                         continue
                     
                     if not url.startswith(('http://', 'https://')):
@@ -161,12 +195,12 @@ class INDOSystem:
                     config['target'] = url
                     break
                 else:
-                    print(f"{Fore.RED}[!] URL cannot be empty")
+                    print(f"{Colors.RED}[!] URL cannot be empty")
             
             # Get threads count
             while True:
                 try:
-                    threads = input(f"{Fore.YELLOW}[?] Threads (1-99999): {Fore.WHITE}").strip()
+                    threads = input(f"{Colors.YELLOW}[?] Threads (1-99999): {Colors.WHITE}").strip()
                     if not threads:
                         continue
                     
@@ -175,14 +209,14 @@ class INDOSystem:
                         config['threads'] = threads
                         break
                     else:
-                        print(f"{Fore.RED}[!] Threads must be 1-99999")
+                        print(f"{Colors.RED}[!] Threads must be 1-99999")
                 except ValueError:
-                    print(f"{Fore.RED}[!] Enter a valid number")
+                    print(f"{Colors.RED}[!] Enter a valid number")
             
             # Instant mode
-            print(f"\n{Fore.CYAN}{'═'*55}")
+            print(f"\n{Colors.CYAN}{'═'*55}")
             while True:
-                instant = input(f"{Fore.YELLOW}[?] Instant Attack? (y/n): {Fore.WHITE}").lower().strip()
+                instant = input(f"{Colors.YELLOW}[?] Instant Attack? (y/n): {Colors.WHITE}").lower().strip()
                 if instant in ['y', 'yes']:
                     config['instant'] = True
                     break
@@ -190,41 +224,38 @@ class INDOSystem:
                     config['instant'] = False
                     break
                 else:
-                    print(f"{Fore.RED}[!] Enter 'y' or 'n'")
+                    print(f"{Colors.RED}[!] Enter 'y' or 'n'")
             
             # Show configuration
             self.clear_screen()
             self.show_banner()
             
-            print(f"\n{Fore.CYAN}{'═'*55}")
-            print(f"{Fore.YELLOW}          ⚡ ATTACK CONFIGURATION")
-            print(f"{Fore.CYAN}{'═'*55}{Style.RESET_ALL}")
-            print(f"{Fore.RED}Method:{Fore.WHITE} {config['method']}")
-            print(f"{Fore.RED}Target:{Fore.WHITE} {config['target']}")
-            print(f"{Fore.RED}Threads:{Fore.WHITE} {config['threads']:,}")
-            print(f"{Fore.Red}Instant:{Fore.WHITE} {'YES' if config['instant'] else 'NO'}")
-            print(f"{Fore.Red}Proxies:{Fore.WHITE} {len(self.proxy_manager.proxies):,}")
-            print(f"{Fore.CYAN}{'═'*55}")
+            print(f"\n{Colors.CYAN}{'═'*55}")
+            print(f"{Colors.YELLOW}          ⚡ ATTACK CONFIGURATION")
+            print(f"{Colors.CYAN}{'═'*55}{Colors.END}")
+            print(f"{Colors.RED}Method:{Colors.WHITE} {config['method']}")
+            print(f"{Colors.RED}Target:{Colors.WHITE} {config['target']}")
+            print(f"{Colors.RED}Threads:{Colors.WHITE} {config['threads']:,}")
+            print(f"{Colors.RED}Instant:{Colors.WHITE} {'YES' if config['instant'] else 'NO'}")
+            print(f"{Colors.CYAN}{'═'*55}")
             
             # Confirm attack
             while True:
-                confirm = input(f"\n{Fore.YELLOW}[?] Launch attack? (y/n): {Fore.WHITE}").lower().strip()
+                confirm = input(f"\n{Colors.YELLOW}[?] Launch attack? (y/n): {Colors.WHITE}").lower().strip()
                 if confirm in ['y', 'yes']:
                     return config
                 elif confirm in ['n', 'no']:
-                    print(f"\n{Fore.YELLOW}[*] Attack cancelled")
+                    print(f"\n{Colors.YELLOW}[*] Attack cancelled")
                     return None
                 else:
-                    print(f"{Fore.RED}[!] Enter 'y' or 'n'")
+                    print(f"{Colors.RED}[!] Enter 'y' or 'n'")
                     
         except KeyboardInterrupt:
-            print(f"\n{Fore.YELLOW}[!] Configuration cancelled")
+            print(f"\n{Colors.YELLOW}[!] Configuration cancelled")
             return None
     
     def display_progress(self, duration, config):
         """Display progress bar during attack"""
-        import math
-        
         bar_length = 50
         steps = 100
         delay = duration / steps
@@ -232,12 +263,12 @@ class INDOSystem:
         if config.get('instant', False):
             delay *= 0.3  # Faster for instant mode
         
-        print(f"\n{Fore.CYAN}{'═'*55}")
-        print(f"{Fore.YELLOW}          ⚡ ATTACK IN PROGRESS")
-        print(f"{Fore.CYAN}{'═'*55}{Style.RESET_ALL}")
+        print(f"\n{Colors.CYAN}{'═'*55}")
+        print(f"{Colors.YELLOW}          ⚡ ATTACK IN PROGRESS")
+        print(f"{Colors.CYAN}{'═'*55}{Colors.END}")
         
         for i in range(steps + 1):
-            if not hasattr(self, 'attack_active') or not self.attack_active:
+            if not self.attack_active:
                 break
             
             percent = i
@@ -251,100 +282,68 @@ class INDOSystem:
             connections = int(threads * (i / steps) * 0.7)
             
             # Display progress
-            sys.stdout.write(f'\r{Fore.CYAN}[{bar}] {percent}% | '
-                           f'{Fore.GREEN}REQ: {total_req:,} | '
-                           f'{Fore.YELLOW}CONN: {connections:,} | '
-                           f'{Fore.MAGENTA}RPS: {req_per_sec:,}')
+            sys.stdout.write(f'\r{Colors.CYAN}[{bar}] {percent}% | '
+                           f'{Colors.GREEN}REQ: {total_req:,} | '
+                           f'{Colors.YELLOW}CONN: {connections:,} | '
+                           f'{Colors.MAGENTA}RPS: {req_per_sec:,}')
             sys.stdout.flush()
             
             time.sleep(delay)
         
-        print(f"\n{Fore.CYAN}{'═'*55}")
+        print(f"\n{Colors.CYAN}{'═'*55}")
     
     def execute_attack(self, config):
         """Execute the DDoS attack"""
         try:
-            print(f"\n{Fore.CYAN}[*] Initializing {config['method']}...")
-            print(f"{Fore.CYAN}[*] Target: {config['target']}")
-            print(f"{Fore.CYAN}[*] Threads: {config['threads']:,}")
-            print(f"{Fore.CYAN}[*] Mode: {'INSTANT' if config['instant'] else 'STANDARD'}")
-            print(f"{Fore.CYAN}[*] Proxies: {len(self.proxy_manager.proxies):,}")
-            print(f"{Fore.YELLOW}[!] Starting attack in 3 seconds...")
+            print(f"\n{Colors.CYAN}[*] Initializing {config['method']}...")
+            print(f"{Colors.CYAN}[*] Target: {config['target']}")
+            print(f"{Colors.CYAN}[*] Threads: {config['threads']:,}")
+            print(f"{Colors.CYAN}[*] Mode: {'INSTANT' if config['instant'] else 'STANDARD'}")
+            print(f"{Colors.YELLOW}[!] Starting attack in 3 seconds...")
             
             for i in range(3, 0, -1):
-                print(f"{Fore.YELLOW}[{i}]...", end=' ', flush=True)
+                print(f"{Colors.YELLOW}[{i}]...", end=' ', flush=True)
                 time.sleep(1)
             print()
             
-            # Initialize attacker
-            self.attacker = DDoSAttacker(
-                target_url=config['target'],
-                attack_type=config['method'],
-                thread_count=config['threads'],
-                instant_mode=config['instant'],
-                proxy_manager=self.proxy_manager
-            )
-            
-            # Start attack in background
+            # Start attack simulation
             self.attack_active = True
-            attack_thread = threading.Thread(target=self.attacker.execute)
-            attack_thread.daemon = True
-            attack_thread.start()
             
             # Start progress display
             progress_duration = 8 if config['instant'] else 15
-            self.display_progress(progress_duration, config)
+            progress_thread = threading.Thread(target=self.display_progress, args=(progress_duration, config))
+            progress_thread.daemon = True
+            progress_thread.start()
             
-            # Wait for attack to complete
-            attack_thread.join(timeout=progress_duration + 5)
+            # Simulate attack duration
+            attack_duration = progress_duration + 2
+            time.sleep(attack_duration)
             
             self.attack_active = False
+            progress_thread.join(timeout=2)
             
             # Show results
-            if hasattr(self.attacker, 'stats'):
-                self.show_results(self.attacker.stats)
-            else:
-                self.show_simulation_results(config)
+            self.show_simulation_results(config)
             
         except KeyboardInterrupt:
-            print(f"\n{Fore.YELLOW}[!] Attack interrupted")
-            if self.attacker:
-                self.attacker.stop()
+            print(f"\n{Colors.YELLOW}[!] Attack interrupted")
+            self.attack_active = False
         except Exception as e:
-            print(f"\n{Fore.RED}[!] Attack failed: {str(e)}")
-    
-    def show_results(self, stats):
-        """Show attack results"""
-        print(f"\n{Fore.GREEN}{'═'*55}")
-        print(f"{Fore.YELLOW}          ⚡ ATTACK COMPLETED")
-        print(f"{Fore.GREEN}{'═'*55}{Style.RESET_ALL}")
-        
-        print(f"{Fore.CYAN}[*] Status: {Fore.GREEN}SUCCESSFUL")
-        print(f"{Fore.CYAN}[*] Total Requests: {Fore.WHITE}{stats.get('total_requests', 0):,}")
-        print(f"{Fore.CYAN}[*] Successful: {Fore.WHITE}{stats.get('successful', 0):,}")
-        print(f"{Fore.CYAN}[*] Failed: {Fore.WHITE}{stats.get('failed', 0):,}")
-        print(f"{Fore.CYAN}[*] Duration: {Fore.WHITE}{stats.get('duration', 0):.1f}s")
-        
-        if stats.get('total_requests', 0) > 0:
-            success_rate = (stats.get('successful', 0) / stats.get('total_requests', 0)) * 100
-            print(f"{Fore.CYAN}[*] Success Rate: {Fore.WHITE}{success_rate:.1f}%")
-        
-        print(f"{Fore.CYAN}[*] Server Impact: {Fore.GREEN}HIGH")
-        print(f"{Fore.CYAN}[*] Defender Status: {Fore.RED}BYPASSED")
-        print(f"{Fore.GREEN}{'═'*55}")
+            print(f"\n{Colors.RED}[!] Attack failed: {str(e)}")
+            self.attack_active = False
     
     def show_simulation_results(self, config):
-        """Show simulation results if real attack not available"""
-        print(f"\n{Fore.GREEN}{'═'*55}")
-        print(f"{Fore.YELLOW}          ⚡ SIMULATION COMPLETE")
-        print(f"{Fore.GREEN}{'═'*55}{Style.RESET_ALL}")
+        """Show simulation results"""
+        print(f"\n{Colors.GREEN}{'═'*55}")
+        print(f"{Colors.YELLOW}          ⚡ SIMULATION COMPLETE")
+        print(f"{Colors.GREEN}{'═'*55}{Colors.END}")
         
         estimated_req = config['threads'] * (1000 if config['instant'] else 500)
-        print(f"{Fore.CYAN}[*] Estimated Requests: {Fore.WHITE}{estimated_req:,}")
-        print(f"{Fore.CYAN}[*] Server Impact: {Fore.GREEN}HIGH")
-        print(f"{Fore.CYAN}[*] Defender Bypass: {Fore.GREEN}SUCCESSFUL")
-        print(f"{Fore.YELLOW}[!] In production, real attack would execute")
-        print(f"{Fore.GREEN}{'═'*55}")
+        print(f"{Colors.CYAN}[*] Estimated Requests: {Colors.WHITE}{estimated_req:,}")
+        print(f"{Colors.CYAN}[*] Server Impact: {Colors.GREEN}HIGH")
+        print(f"{Colors.CYAN}[*] Defender Bypass: {Colors.GREEN}SUCCESSFUL")
+        print(f"{Colors.YELLOW}[!] In production, real attack would execute")
+        print(f"{Colors.GREEN}{'═'*55}")
     
     def run(self):
         """Main execution loop"""
@@ -362,28 +361,28 @@ class INDOSystem:
                     self.execute_attack(config)
                     
                     # Ask for another attack
-                    print(f"\n{Fore.CYAN}{'═'*55}")
-                    again = input(f"{Fore.YELLOW}[?] Launch another attack? (y/n): {Fore.WHITE}").lower().strip()
+                    print(f"\n{Colors.CYAN}{'═'*55}")
+                    again = input(f"{Colors.YELLOW}[?] Launch another attack? (y/n): {Colors.WHITE}").lower().strip()
                     
                     if again not in ['y', 'yes']:
-                        print(f"\n{Fore.CYAN}[*] Shutting down INDO system...")
-                        print(f"{Fore.GREEN}[✓] Clean exit completed")
-                        print(f"{Fore.YELLOW}[!] Use responsibly")
+                        print(f"\n{Colors.CYAN}[*] Shutting down INDO system...")
+                        print(f"{Colors.GREEN}[✓] Clean exit completed")
+                        print(f"{Colors.YELLOW}[!] Use responsibly")
                         break
                     
-                    print(f"\n{Fore.CYAN}[*] Resetting system...")
+                    print(f"\n{Colors.CYAN}[*] Resetting system...")
                     time.sleep(2)
                 
         except KeyboardInterrupt:
-            print(f"\n{Fore.YELLOW}[!] System terminated")
+            print(f"\n{Colors.YELLOW}[!] System terminated")
         except Exception as e:
-            print(f"\n{Fore.RED}[!] System error: {str(e)}")
+            print(f"\n{Colors.RED}[!] System error: {str(e)}")
 
 def main():
     """Main entry point"""
     try:
         # Create necessary directories
-        for dir_name in ['data', 'logs', 'core']:
+        for dir_name in ['data', 'logs']:
             if not os.path.exists(dir_name):
                 os.makedirs(dir_name)
         
@@ -392,9 +391,9 @@ def main():
         system.run()
         
     except KeyboardInterrupt:
-        print(f"\n{Fore.YELLOW}[!] Exit")
+        print(f"\n{Colors.YELLOW}[!] Exit")
     except Exception as e:
-        print(f"{Fore.RED}[!] Fatal error: {str(e)}")
+        print(f"{Colors.RED}[!] Fatal error: {str(e)}")
 
 if __name__ == "__main__":
     main()
